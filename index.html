@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vòng Quay Bát Quái</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:"Times New Roman",serif;background:radial-gradient(circle at center,#3a0d0d 0%,#180404 65%,#090101 100%);color:#f5dfad;padding:30px 15px}
+h1{margin:0 0 8px;font-size:38px;letter-spacing:4px;color:#e8c36a}
+.subtitle{margin-bottom:30px;opacity:.75;letter-spacing:2px}
+.wheel-container{position:relative;width:min(82vw,520px);aspect-ratio:1}
+.pointer{position:absolute;z-index:10;left:50%;top:-18px;transform:translateX(-50%);width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-top:45px solid #f3d378;filter:drop-shadow(0 3px 4px #000)}
+canvas{width:100%;height:100%;border-radius:50%;border:6px solid #d2a94f;box-shadow:0 0 0 8px #551818,0 0 30px rgba(224,181,83,.4),inset 0 0 30px rgba(0,0,0,.5);transition:transform 5s cubic-bezier(.15,.8,.15,1)}
+.spin-button{position:absolute;z-index:20;width:105px;height:105px;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:50%;border:5px solid #d5ad55;background:radial-gradient(circle,#922929,#4d1010);color:#f4d985;font-size:18px;font-weight:bold;letter-spacing:2px;cursor:pointer;box-shadow:0 0 15px #000,inset 0 0 15px rgba(255,210,100,.25);transition:.2s}
+.spin-button:hover{transform:translate(-50%,-50%) scale(1.07)}
+.spin-button:disabled{cursor:not-allowed;opacity:.7}
+.result{width:min(90vw,600px);margin-top:35px;padding:22px 30px;text-align:center;background:linear-gradient(135deg,rgba(90,18,18,.9),rgba(35,5,5,.95));border:1px solid #a87d38;border-radius:12px;min-height:120px;box-shadow:0 10px 30px rgba(0,0,0,.35);opacity:0;transform:translateY(10px);transition:.5s}
+.result.show{opacity:1;transform:translateY(0)}
+.result-symbol{font-size:46px;color:#f1ce76}
+.result-name{font-size:27px;color:#f1ce76;margin:4px 0 10px}
+.result-text{font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#eadcb9}
+.hint{margin-top:18px;font-family:Arial,sans-serif;font-size:12px;opacity:.5}
+</style>
+</head>
+<body>
+<h1>BÁT QUÁI</h1>
+<div class="subtitle">VÒNG QUAY KINH DỊCH</div>
+<div class="wheel-container">
+  <div class="pointer"></div>
+  <canvas id="wheel" width="600" height="600"></canvas>
+  <button class="spin-button" id="spinBtn">KHAI QUẺ</button>
+</div>
+<div class="result" id="result">
+  <div class="result-symbol" id="resultSymbol"></div>
+  <div class="result-name" id="resultName"></div>
+  <div class="result-text" id="resultText"></div>
+</div>
+<div class="hint">Tĩnh tâm · Đặt câu hỏi · Khai quẻ</div>
+<script>
+const trigrams=[
+{name:"CÀN 乾",symbol:"☰",nature:"TRỜI",meaning:"Sức mạnh của sự sáng tạo và chủ động. Quẻ nhắc đến tinh thần tiến lên, quyết đoán và khả năng tự mình tạo nên sự thay đổi."},
+{name:"ĐOÀI 兌",symbol:"☱",nature:"ĐẦM",meaning:"Biểu tượng của niềm vui, sự cởi mở và giao tiếp. Hãy chú trọng kết nối, chia sẻ và tạo sự hòa hợp."},
+{name:"LY 離",symbol:"☲",nature:"LỬA",meaning:"Ánh sáng, sự rõ ràng và nhận thức. Đây là lúc nhìn sự việc sáng tỏ hơn, phát huy trí tuệ và điều khiến bạn tỏa sáng."},
+{name:"CHẤN 震",symbol:"☳",nature:"SẤM",meaning:"Năng lượng khởi đầu và chuyển động mạnh. Một thay đổi có thể xuất hiện bất ngờ; hãy tỉnh táo và sẵn sàng hành động."},
+{name:"TỐN 巽",symbol:"☴",nature:"GIÓ",meaning:"Sự mềm mại nhưng bền bỉ. Thay vì đối đầu trực diện, hãy linh hoạt, thích nghi và tiến từng bước."},
+{name:"KHẢM 坎",symbol:"☵",nature:"NƯỚC",meaning:"Dòng nước đi qua nơi hiểm trở. Có thể đang tồn tại thử thách hoặc điều chưa chắc chắn. Hãy thận trọng nhưng tiếp tục tiến lên."},
+{name:"CẤN 艮",symbol:"☶",nature:"NÚI",meaning:"Núi tượng trưng cho sự tĩnh và dừng lại. Không phải lúc nào tiến lên cũng là lựa chọn tốt; đôi khi cần dừng để quan sát và củng cố nền tảng."},
+{name:"KHÔN 坤",symbol:"☷",nature:"ĐẤT",meaning:"Sự tiếp nhận, nuôi dưỡng và nâng đỡ. Hãy kiên nhẫn, tạo nền tảng và để mọi việc phát triển theo đúng thời điểm."}
+];
+const canvas=document.getElementById("wheel"),ctx=canvas.getContext("2d"),spinBtn=document.getElementById("spinBtn"),result=document.getElementById("result");
+const size=canvas.width,center=size/2,radius=size/2-10,slice=Math.PI*2/trigrams.length;
+function drawWheel(){
+ trigrams.forEach((item,i)=>{
+  const start=i*slice-Math.PI/2,end=start+slice;
+  ctx.beginPath();ctx.moveTo(center,center);ctx.arc(center,center,radius,start,end);ctx.closePath();
+  ctx.fillStyle=i%2===0?"#681919":"#3d0d0d";ctx.fill();ctx.strokeStyle="#b98c3f";ctx.lineWidth=2;ctx.stroke();
+  ctx.save();ctx.translate(center,center);ctx.rotate(start+slice/2);ctx.textAlign="center";ctx.fillStyle="#f0ce78";
+  ctx.font="bold 55px serif";ctx.fillText(item.symbol,radius*.67,-5);
+  ctx.font="bold 19px serif";ctx.fillText(item.name,radius*.67,30);
+  ctx.font="14px Arial";ctx.fillStyle="#d9bd83";ctx.fillText(item.nature,radius*.67,52);ctx.restore();
+ });
+ ctx.beginPath();ctx.arc(center,center,radius*.30,0,Math.PI*2);ctx.fillStyle="#250505";ctx.fill();ctx.strokeStyle="#c39a4d";ctx.lineWidth=3;ctx.stroke();
+}
+drawWheel();
+let currentRotation=0,spinning=false;
+spinBtn.addEventListener("click",()=>{
+ if(spinning)return; spinning=true;spinBtn.disabled=true;result.classList.remove("show");
+ const selected=Math.floor(Math.random()*trigrams.length),sliceDeg=360/trigrams.length,selectedCenter=selected*sliceDeg+sliceDeg/2,extraSpins=5+Math.floor(Math.random()*3),normalized=currentRotation%360;
+ let target=360-selectedCenter,delta=target-normalized;if(delta<0)delta+=360;
+ currentRotation+=extraSpins*360+delta;canvas.style.transform=`rotate(${currentRotation}deg)`;
+ setTimeout(()=>{const item=trigrams[selected];document.getElementById("resultSymbol").textContent=item.symbol;document.getElementById("resultName").textContent=item.name+" · "+item.nature;document.getElementById("resultText").textContent=item.meaning;result.classList.add("show");spinning=false;spinBtn.disabled=false},5100);
+});
+</script>
+</body>
+</html>
